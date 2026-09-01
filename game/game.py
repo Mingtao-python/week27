@@ -96,13 +96,13 @@ def swap_animation(board, r1, c1, r2, c2):
         pygame.time.delay(20)  # 每帧延迟（越大越慢）
 
 def load_best_score():
-    if os.path.exists("score.json"):
-        with open("score.json", "r", encoding="utf-8") as f:
+    if os.path.exists("game/score.json"):
+        with open("game/score.json", "r", encoding="utf-8") as f:
             return json.load(f).get("best_score", 0)
     return 0
 
 def save_best_score(best):
-    with open("score.json", "w", encoding="utf-8") as f:
+    with open("game/score.json", "w", encoding="utf-8") as f:
         json.dump({"best_score": best}, f)
 
 best_score = load_best_score()
