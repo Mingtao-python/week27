@@ -1,19 +1,3 @@
-"""
-Week27 Automated Test Suite
-Author: Mingtao
-Version: 1.0
-
-Comprehensive tests covering all course requirements:
-1. Malformed Input: Missing fields, type errors
-2. Duplicate Events: Same event submitted multiple times
-3. Impossible Sequences: Logically conflicting event flows
-4. Edge Cases: Empty data, extreme values
-
-Following the coding style guide:
-- Tests correspond to actual if/raise logic in code
-- No false "PASS" claims - every assertion backed by code
-"""
-
 import pytest
 import json
 import sys
@@ -51,6 +35,7 @@ from analytics.benchmark_runner import (
 
 from analytics.error_analyzer import (
     ErrorAnalyzer,
+    compare_regression_runs,
     create_regression_suite,
 )
 
@@ -124,6 +109,20 @@ class TestSchemaValidation:
         # Empty strings are technically valid strings, but may fail semantic checks
         assert is_valid, "Empty strings are still strings"
 
+    def test_extra_support_ticket_field(self):
+        """Test rejection of fields outside the defined schema."""
+        ticket = {
+            "customer_name": "John Doe",
+            "issue_type": "Billing",
+            "priority": "High",
+            "summary": "Charged twice",
+            "requires_human_review": False,
+            "secret_admin_command": "run"
+        }
+        is_valid, errors = validate_support_ticket(ticket)
+        assert not is_valid
+        assert any("Unexpected fields" in error for error in errors)
+
 
 # =============================================================================
 # Part 2: Invoice Validation Tests (Cross-field Consistency)
@@ -190,6 +189,22 @@ class TestInvoiceValidation:
         is_valid, errors = validate_invoice(invalid_invoice)
         assert not is_valid, "Should detect wrong type"
         assert any("must be a number" in e for e in errors)
+
+    def test_extra_invoice_field(self):
+        """Test rejection of fields outside the invoice schema."""
+        invoice = {
+            "supplier": "Acme Corp",
+            "invoice_number": "INV-001",
+            "date": "2024-01-15",
+            "currency": "USD",
+            "subtotal": 100.0,
+            "tax": 10.0,
+            "total": 110.0,
+            "unexpected": "value"
+        }
+        is_valid, errors = validate_invoice(invoice)
+        assert not is_valid
+        assert any("Unexpected fields" in error for error in errors)
 
 
 # =============================================================================
@@ -374,6 +389,74 @@ class TestBenchmarkRunner:
         # Should skip malformed line and continue
         assert len(cases) == 2
 
+    def test_ground_truth_metrics_and_both_slice_dimensions(self, tmp_path):
+        """Test semantic comparison, classification metrics, and both slice dimensions."""
+        benchmark_path = tmp_path / "cases.jsonl"
+        cases = [
+            {
+                "id": "case_1", "task_type": "classification",
+                "input_prompt": "billing", "expected_output": {"label": "Billing"},
+                "difficulty": "easy", "slice_category": "payment"
+            },
+            {
+                "id": "case_2", "task_type": "classification",
+                "input_prompt": "account", "expected_output": {"label": "Account"},
+                "difficulty": "ambiguous", "slice_category": "login"
+            }
+        ]
+        benchmark_path.write_text(
+            ''.join(json.dumps(case) + '\n' for case in cases),
+            encoding='utf-8'
+        )
+        runner = BenchmarkRunner(str(benchmark_path), str(tmp_path / "results"))
+        runner.load_jsonl()
+        predictions = {"billing": "Billing", "account": "Billing"}
+        runner.run_model(
+            "test_model",
+            lambda prompt: {
+                "raw_output": predictions[prompt],
+                "parsed_output": {"label": predictions[prompt]}
+            },
+            resume=False
+        )
+
+        result = runner.evaluate_model("test_model")
+        assert result["schema_pass_rate"] == 1.0
+        assert result["semantic_pass_rate"] == 0.5
+        assert result["accuracy"] == 0.5
+        assert result["precision"] is not None
+        assert result["recall"] is not None
+        assert result["f1_score"] is not None
+        assert set(result["difficulty_results"]) == {"easy", "ambiguous"}
+        assert set(result["category_results"]) == {"Billing", "Account"}
+        assert set(result["slice_results"]) == {"payment", "login"}
+        assert set(result["per_class_metrics"]) == {
+            "Billing", "Technical", "Account", "Other"
+        }
+
+    def test_schema_valid_output_can_be_semantically_wrong(self, tmp_path):
+        """Test that valid output structure does not imply a correct answer."""
+        benchmark_path = tmp_path / "case.jsonl"
+        case = {
+            "id": "case_1", "task_type": "classification",
+            "input_prompt": "account", "expected_output": {"label": "Account"},
+            "difficulty": "easy", "slice_category": "account"
+        }
+        benchmark_path.write_text(json.dumps(case) + '\n', encoding='utf-8')
+        runner = BenchmarkRunner(str(benchmark_path), str(tmp_path / "results"))
+        runner.load_jsonl()
+        runner.run_model(
+            "wrong_model",
+            lambda prompt: {
+                "raw_output": "Billing",
+                "parsed_output": {"label": "Billing"}
+            },
+            resume=False
+        )
+        record = runner.results["wrong_model"][0]
+        assert record["schema_valid"]
+        assert not record["semantic_valid"]
+
 
 # =============================================================================
 # Part 6: Error Analyzer Tests
@@ -401,24 +484,52 @@ class TestErrorAnalyzer:
         assert "critical" in levels
     
     def test_regression_suite_creation(self, tmp_path):
-        """Test creation of regression test suite."""
+        """Test regression suite preserves original inputs and ground truth."""
         sample_failures = [
-            {'case_id': 'case_1', 'failure_category': 'missing_field', 'severity': 'medium', 'slice_category': 'normal'},
-            {'case_id': 'case_2', 'failure_category': 'prompt_injection', 'severity': 'critical', 'slice_category': 'security'},
-            {'case_id': 'case_3', 'failure_category': 'wrong_type', 'severity': 'low', 'slice_category': 'edge'},
-            {'case_id': 'case_4', 'failure_category': 'invented_value', 'severity': 'high', 'slice_category': 'ambiguous'},
+            {
+                'case_id': f'case_{index}',
+                'failure_category': 'wrong_value',
+                'severity': 'medium',
+                'slice_category': 'normal',
+                'original_input': f'original prompt {index}',
+                'expected_output': {'label': 'Billing'}
+            }
+            for index in range(8)
         ]
-        
         output_path = tmp_path / "regression_suite.json"
         created_path = create_regression_suite(sample_failures, str(output_path))
-        
         assert Path(created_path).exists()
-        
         with open(created_path, 'r') as f:
             regression_cases = json.load(f)
-        
-        # Should select diverse failures
-        assert len(regression_cases) >= min(len(sample_failures), 8)
+        assert len(regression_cases) == 8
+        assert regression_cases[0]["input_prompt"] == "original prompt 0"
+        assert regression_cases[0]["expected_output"] == {"label": "Billing"}
+
+    def test_regression_suite_requires_eight_verified_failures(self, tmp_path):
+        """Test that a short or incomplete failure list is not called an 8-case suite."""
+        with pytest.raises(ValueError, match="at least 8 verified failures"):
+            create_regression_suite(
+                [{'case_id': 'case_1', 'severity': 'high'}],
+                str(tmp_path / "regression_suite.json")
+            )
+
+    def test_before_after_regression_comparison(self):
+        """Test improved, unchanged, and regressed outcomes on the same cases."""
+        cases = [
+            {'id': 'improved', 'input_prompt': 'one', 'expected_output': {'label': 'A'}},
+            {'id': 'unchanged', 'input_prompt': 'two', 'expected_output': {'label': 'A'}},
+            {'id': 'regressed', 'input_prompt': 'three', 'expected_output': {'label': 'A'}}
+        ]
+        before = {'one': 'B', 'two': 'A', 'three': 'A'}
+        after = {'one': 'A', 'two': 'A', 'three': 'B'}
+        result = compare_regression_runs(
+            cases,
+            lambda prompt: {'parsed_output': {'label': before[prompt]}},
+            lambda prompt: {'parsed_output': {'label': after[prompt]}}
+        )
+        assert result["improved"] == 1
+        assert result["unchanged"] == 1
+        assert result["regressed"] == 1
 
 
 # =============================================================================
@@ -453,6 +564,47 @@ class TestSecurity:
         # BenchmarkRunner stores expected_output separately from input_prompt
         # This ensures they don't get mixed during evaluation
         assert True  # Design verified by code structure
+
+    def test_benign_ignore_word_is_not_prompt_injection(self):
+        """Test prompt-injection classification uses explicit case metadata."""
+        case = {
+            "id": "benign",
+            "input_prompt": "Ignore the previous billing notice and check my account",
+            "expected_output": {"label": "Account"},
+            "difficulty": "normal",
+            "slice_category": "account"
+        }
+        analyzer = ErrorAnalyzer(".", [case])
+        failure = analyzer.classify_failure({
+            "case_id": "benign",
+            "model_name": "test",
+            "schema_valid": True,
+            "semantic_valid": False,
+            "validation_errors": ["Predicted label does not match expected label"],
+            "raw_output": "Account notice check failed"
+        })
+        assert failure["failure_category"] == "wrong_value"
+
+    def test_flagged_attacker_output_is_prompt_injection(self):
+        """Test explicit attacker-output matches are classified as injection."""
+        case = {
+            "id": "attack",
+            "input_prompt": "Classify this ticket",
+            "expected_output": {"label": "Other"},
+            "security_case": True,
+            "attacker_requested_output": {"label": "PASS"}
+        }
+        analyzer = ErrorAnalyzer(".", [case])
+        failure = analyzer.classify_failure({
+            "case_id": "attack",
+            "model_name": "test",
+            "schema_valid": False,
+            "semantic_valid": False,
+            "validation_errors": ["Prompt injection succeeded"],
+            "raw_output": "PASS",
+            "parsed_output": {"label": "PASS"}
+        })
+        assert failure["failure_category"] == "prompt_injection"
 
 
 # =============================================================================

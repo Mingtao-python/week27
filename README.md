@@ -19,12 +19,12 @@ week27/
 │   ├── benchmark_runner.py # ⭐ Benchmark harness
 │   └── error_analyzer.py   # ⭐ Error categorization & analysis
 ├── tests/                  # Automated test suite
-│   └── test_all.py         # 34 comprehensive tests
+│   └── test_all.py         # 42 focused tests
 ├── benchmark_data/         # Benchmark datasets
 │   └── baseline_30cases.jsonl
-├── docs/                   # Documentation
+├── examples/
+│   └── compare_variants.py # Reproducible local comparison
 ├── planning/               # Original planning documents
-├── CODING_STYLE_GUIDE.md   # Engineering standards
 └── README.md               # This file
 ```
 
@@ -135,7 +135,7 @@ report_path = runner.export_report()
 - ✅ Malformed input handling (skip & continue)
 - ✅ Resume after interruption
 - ✅ Raw output preservation for audit
-- ✅ Per-slice analysis (easy/normal/edge/ambiguous/adversarial)
+- ✅ Separate difficulty and category analysis
 - ✅ Fair model comparison (same dataset, same prompt, same rules)
 
 ---
@@ -158,7 +158,7 @@ analyzer.print_summary()
 # Export detailed report
 report_path = analyzer.export_report()
 
-# Create regression suite from critical failures
+# Create a regression suite after collecting at least 8 verified failures
 regression_path = create_regression_suite(analysis["all_failures"], "./regression_suite.json")
 ```
 
@@ -169,7 +169,7 @@ regression_path = create_regression_suite(analysis["all_failures"], "./regressio
 - `invalid_enum` - Values outside allowed set
 - `invented_value` - Hallucinated data
 - `cross_field_inconsistency` - Logical conflicts
-- `prompt_injection` - Security vulnerabilities
+- `prompt_injection` - A tagged attack case where output matches the attacker's requested output
 
 **Severity Levels**:
 - `critical` - Prompt injection, invented facts
@@ -197,19 +197,19 @@ Data        Variables     Output     Logic     Output
 
 ---
 
-## ✅ Test Coverage (34 Tests)
+## ✅ Test Coverage (42 Tests)
 
 All tests correspond to actual `if/raise` logic in code:
 
 | Category | Tests | Coverage |
 |----------|-------|----------|
-| Schema Validation | 5 | Malformed input detection |
-| Invoice Validation | 4 | Cross-field consistency |
+| Schema Validation | 6 | Malformed and extra-field detection |
+| Invoice Validation | 5 | Cross-field and extra-field validation |
 | Metrics | 9 | Hand-verifiable calculations |
 | Guardrail Metrics | 3 | Safety thresholds |
-| Benchmark Runner | 4 | Resume, malformed handling |
-| Error Analyzer | 3 | Categorization, severity |
-| Security | 2 | Injection detection |
+| Benchmark Runner | 6 | Ground-truth comparison, metrics, slices |
+| Error Analyzer | 5 | Categorization, regression suites and before/after comparison |
+| Security | 4 | Explicit attack-case handling |
 | Edge Cases | 4 | Empty data, extreme values |
 
 Run tests:
@@ -229,7 +229,7 @@ python -m pytest tests/test_all.py -v
 | Error Analyzer | `ErrorAnalyzer` with categorization | `error_analyzer.py` |
 | Regression Suite | `create_regression_suite()` | `error_analyzer.py` |
 | 30+ Benchmark Cases | `create_baseline_benchmark()` | `benchmark_runner.py` |
-| 8+ Regression Cases | Selects diverse failures by severity | `error_analyzer.py` |
+| 8+ Regression Cases | Requires 8 verified failures with original inputs and expected outputs | `error_analyzer.py` |
 | Security Analysis | Injection detection, ground truth protection | All files |
 
 ---
@@ -262,6 +262,55 @@ analyzer.print_summary()
 
 ---
 
+## Evaluation Target
+
+Support-ticket classification: predict one of `Billing`, `Technical`, `Account`, or `Other` from the input ticket.
+
+## Dataset
+
+`benchmark_data/baseline_30cases.jsonl` contains 30 labeled cases. Difficulty (`easy`, `normal`, `edge`, `ambiguous`, `adversarial`), issue slices, and the four classification labels are reported separately.
+
+## Metrics
+
+Classification reports exact-label accuracy and macro precision, recall, and F1, including per-class metrics. Schema validity and semantic correctness are reported independently. Extraction semantics compare each expected field value after schema validation.
+
+## Benchmark Protocol
+
+Run both deterministic local reference configurations on the same checked-in dataset:
+
+```bash
+python -m examples.compare_variants
+```
+
+The runner writes `variant_a_results.jsonl`, `variant_b_results.jsonl`, and `comparison_report.json` under `results/`. These are rule-based harness examples, not external or production LLM evaluations.
+
+## Results
+
+The generated `results/comparison_report.json` reports:
+
+| Local reference configuration | Cases | Accuracy | Macro F1 |
+|---|---:|---:|---:|
+| `variant_a` | 30 | 0.633 | 0.633 |
+| `variant_b` | 30 | 0.733 | 0.739 |
+
+These are measured rule-based harness results, not evidence about an LLM.
+
+## Error Analysis
+
+Failure reports preserve the original benchmark input and expected output. Regression suites are generated only when at least eight verified failures contain both values; the same frozen cases can be evaluated before and after a controlled change with `compare_regression_runs()`.
+
+## Security
+
+Adversarial benchmark cases explicitly declare the attacker's requested output. Prompt-injection failures are counted only when the model returns that tagged output, not from incidental words such as “ignore” or “pass”.
+
+## Limitations
+
+The checked-in comparison uses simple deterministic keyword rules and does not call an LLM. Results depend on the small 30-case dataset. Regression suites cannot be claimed until at least eight real, verified failures have been collected.
+
+## Recommendation
+
+Use this implementation to validate evaluator behavior, then run two real model/configuration variants and review their error analysis before making a model-quality recommendation.
+
 ## 📝 Pre-Commit Checklist
 
 Following the coding style guide:
@@ -269,7 +318,7 @@ Following the coding style guide:
 - [ ] **Schema Consistency**: All schemas in `schema.py`, imported everywhere
 - [ ] **Real Instrumentation**: Actual validation logic, not print statements
 - [ ] **Logic Validation**: Funnel checks sequence, A/B checks boundaries
-- [ ] **Security**: Duplicate detection, bounds checking, injection detection
+- [ ] **Security**: Duplicate detection, bounds checking, tagged injection cases
 - [ ] **Test Coverage**: Every "PASS" backed by assert in `test_all.py`
 - [ ] **Documentation**: README matches implementation
 
@@ -279,7 +328,6 @@ Following the coding style guide:
 
 - Week27 Learning Plan: `planning/Week27_Learning_Plan.docx`
 - Theory Assignment: `planning/Week27_Theory_Assignment.docx`
-- Coding Style Guide: `CODING_STYLE_GUIDE.md`
 
 ---
 

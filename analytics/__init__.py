@@ -1,20 +1,3 @@
-"""
-Week27 Analytics Package - LLM Evaluation Tool
-Author: Mingtao
-Version: 1.0
-
-This package provides core analytics functionality for LLM evaluation:
-- Schema definitions and validation (schema.py)
-- Metrics calculations (metrics.py)
-- Benchmark runner (benchmark_runner.py)
-- Error analyzer (error_analyzer.py)
-
-Following the coding style guide:
-- Single Source of Truth: All schemas defined in schema.py
-- Real Instrumentation: Actual validation logic, not just print statements
-- Data Integrity: Schema validation, duplicate detection, bounds checking
-"""
-
 from analytics.schema import (
     SupportTicketSchema,
     InvoiceSchema,
@@ -55,6 +38,7 @@ from analytics.benchmark_runner import (
 
 from analytics.error_analyzer import (
     ErrorAnalyzer,
+    compare_regression_runs,
     create_regression_suite,
 )
 
@@ -105,5 +89,6 @@ __all__ = [
     
     # Error Analysis
     'ErrorAnalyzer',
+    'compare_regression_runs',
     'create_regression_suite',
 ]

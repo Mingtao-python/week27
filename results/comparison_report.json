@@ -1,0 +1,525 @@
+{
+  "metadata": {
+    "benchmark_version": "1.0",
+    "created_at": "2026-10-26T21:11:07.378906",
+    "prompt": null,
+    "model_settings": {}
+  },
+  "summary": {
+    "variant_a": {
+      "total_cases": 30,
+      "schema_pass_rate": 1.0,
+      "semantic_pass_rate": 0.6333333333333333,
+      "avg_latency_ms": 0.0
+    },
+    "variant_b": {
+      "total_cases": 30,
+      "schema_pass_rate": 1.0,
+      "semantic_pass_rate": 0.7333333333333333,
+      "avg_latency_ms": 0.0
+    }
+  },
+  "model_results": {
+    "variant_a": {
+      "model_name": "variant_a",
+      "total_cases": 30,
+      "schema_pass_rate": 1.0,
+      "semantic_pass_rate": 0.6333333333333333,
+      "accuracy": 0.6333333333333333,
+      "precision": 0.6666666666666666,
+      "recall": 0.6444444444444444,
+      "f1_score": 0.6333333333333333,
+      "avg_latency_ms": 0.0,
+      "failure_breakdown": {
+        "wrong_value": 11,
+        "prompt_injection": 1
+      },
+      "slice_results": {
+        "account_issues": {
+          "count": 5,
+          "semantic_pass_rate": 1.0
+        },
+        "billing_issues": {
+          "count": 6,
+          "semantic_pass_rate": 0.6666666666666666
+        },
+        "technical_issues": {
+          "count": 5,
+          "semantic_pass_rate": 0.8
+        },
+        "edge_cases": {
+          "count": 4,
+          "semantic_pass_rate": 0.5
+        },
+        "multilingual": {
+          "count": 2,
+          "semantic_pass_rate": 0.0
+        },
+        "multi_issue": {
+          "count": 1,
+          "semantic_pass_rate": 0.0
+        },
+        "emotional": {
+          "count": 1,
+          "semantic_pass_rate": 1.0
+        },
+        "ambiguous": {
+          "count": 4,
+          "semantic_pass_rate": 0.5
+        },
+        "security": {
+          "count": 2,
+          "semantic_pass_rate": 0.5
+        }
+      },
+      "difficulty_results": {
+        "easy": {
+          "count": 6,
+          "semantic_pass_rate": 0.8333333333333334
+        },
+        "normal": {
+          "count": 10,
+          "semantic_pass_rate": 0.8
+        },
+        "edge": {
+          "count": 8,
+          "semantic_pass_rate": 0.375
+        },
+        "ambiguous": {
+          "count": 4,
+          "semantic_pass_rate": 0.5
+        },
+        "adversarial": {
+          "count": 2,
+          "semantic_pass_rate": 0.5
+        }
+      },
+      "category_results": {
+        "Account": {
+          "count": 6,
+          "semantic_pass_rate": 0.8333333333333334
+        },
+        "Billing": {
+          "count": 10,
+          "semantic_pass_rate": 0.7
+        },
+        "Other": {
+          "count": 5,
+          "semantic_pass_rate": 0.6
+        },
+        "Technical": {
+          "count": 9,
+          "semantic_pass_rate": 0.4444444444444444
+        }
+      },
+      "per_class_metrics": {
+        "Account": {
+          "class": "Account",
+          "precision": 0.8333333333333334,
+          "recall": 0.8333333333333334,
+          "f1_score": 0.8333333333333334,
+          "support": 6
+        },
+        "Billing": {
+          "class": "Billing",
+          "precision": 0.7,
+          "recall": 0.7,
+          "f1_score": 0.7,
+          "support": 10
+        },
+        "Other": {
+          "class": "Other",
+          "precision": 0.3333333333333333,
+          "recall": 0.6,
+          "f1_score": 0.42857142857142855,
+          "support": 5
+        },
+        "Technical": {
+          "class": "Technical",
+          "precision": 0.8,
+          "recall": 0.4444444444444444,
+          "f1_score": 0.5714285714285714,
+          "support": 9
+        }
+      }
+    },
+    "variant_b": {
+      "model_name": "variant_b",
+      "total_cases": 30,
+      "schema_pass_rate": 1.0,
+      "semantic_pass_rate": 0.7333333333333333,
+      "accuracy": 0.7333333333333333,
+      "precision": 0.7929292929292929,
+      "recall": 0.7472222222222222,
+      "f1_score": 0.7391774891774892,
+      "avg_latency_ms": 0.0,
+      "failure_breakdown": {
+        "wrong_value": 8
+      },
+      "slice_results": {
+        "account_issues": {
+          "count": 5,
+          "semantic_pass_rate": 0.8
+        },
+        "billing_issues": {
+          "count": 6,
+          "semantic_pass_rate": 0.6666666666666666
+        },
+        "technical_issues": {
+          "count": 5,
+          "semantic_pass_rate": 1.0
+        },
+        "edge_cases": {
+          "count": 4,
+          "semantic_pass_rate": 0.5
+        },
+        "multilingual": {
+          "count": 2,
+          "semantic_pass_rate": 1.0
+        },
+        "multi_issue": {
+          "count": 1,
+          "semantic_pass_rate": 0.0
+        },
+        "emotional": {
+          "count": 1,
+          "semantic_pass_rate": 1.0
+        },
+        "ambiguous": {
+          "count": 4,
+          "semantic_pass_rate": 0.5
+        },
+        "security": {
+          "count": 2,
+          "semantic_pass_rate": 1.0
+        }
+      },
+      "difficulty_results": {
+        "easy": {
+          "count": 6,
+          "semantic_pass_rate": 0.8333333333333334
+        },
+        "normal": {
+          "count": 10,
+          "semantic_pass_rate": 0.8
+        },
+        "edge": {
+          "count": 8,
+          "semantic_pass_rate": 0.625
+        },
+        "ambiguous": {
+          "count": 4,
+          "semantic_pass_rate": 0.5
+        },
+        "adversarial": {
+          "count": 2,
+          "semantic_pass_rate": 1.0
+        }
+      },
+      "category_results": {
+        "Account": {
+          "count": 6,
+          "semantic_pass_rate": 0.8333333333333334
+        },
+        "Billing": {
+          "count": 10,
+          "semantic_pass_rate": 0.8
+        },
+        "Other": {
+          "count": 5,
+          "semantic_pass_rate": 0.8
+        },
+        "Technical": {
+          "count": 9,
+          "semantic_pass_rate": 0.5555555555555556
+        }
+      },
+      "per_class_metrics": {
+        "Account": {
+          "class": "Account",
+          "precision": 1.0,
+          "recall": 0.8333333333333334,
+          "f1_score": 0.9090909090909091,
+          "support": 6
+        },
+        "Billing": {
+          "class": "Billing",
+          "precision": 0.7272727272727273,
+          "recall": 0.8,
+          "f1_score": 0.761904761904762,
+          "support": 10
+        },
+        "Other": {
+          "class": "Other",
+          "precision": 0.4444444444444444,
+          "recall": 0.8,
+          "f1_score": 0.5714285714285714,
+          "support": 5
+        },
+        "Technical": {
+          "class": "Technical",
+          "precision": 1.0,
+          "recall": 0.5555555555555556,
+          "f1_score": 0.7142857142857143,
+          "support": 9
+        }
+      }
+    }
+  },
+  "comparison": {
+    "models": [
+      {
+        "model_name": "variant_a",
+        "total_cases": 30,
+        "schema_pass_rate": 1.0,
+        "semantic_pass_rate": 0.6333333333333333,
+        "accuracy": 0.6333333333333333,
+        "precision": 0.6666666666666666,
+        "recall": 0.6444444444444444,
+        "f1_score": 0.6333333333333333,
+        "avg_latency_ms": 0.0,
+        "failure_breakdown": {
+          "wrong_value": 11,
+          "prompt_injection": 1
+        },
+        "slice_results": {
+          "account_issues": {
+            "count": 5,
+            "semantic_pass_rate": 1.0
+          },
+          "billing_issues": {
+            "count": 6,
+            "semantic_pass_rate": 0.6666666666666666
+          },
+          "technical_issues": {
+            "count": 5,
+            "semantic_pass_rate": 0.8
+          },
+          "edge_cases": {
+            "count": 4,
+            "semantic_pass_rate": 0.5
+          },
+          "multilingual": {
+            "count": 2,
+            "semantic_pass_rate": 0.0
+          },
+          "multi_issue": {
+            "count": 1,
+            "semantic_pass_rate": 0.0
+          },
+          "emotional": {
+            "count": 1,
+            "semantic_pass_rate": 1.0
+          },
+          "ambiguous": {
+            "count": 4,
+            "semantic_pass_rate": 0.5
+          },
+          "security": {
+            "count": 2,
+            "semantic_pass_rate": 0.5
+          }
+        },
+        "difficulty_results": {
+          "easy": {
+            "count": 6,
+            "semantic_pass_rate": 0.8333333333333334
+          },
+          "normal": {
+            "count": 10,
+            "semantic_pass_rate": 0.8
+          },
+          "edge": {
+            "count": 8,
+            "semantic_pass_rate": 0.375
+          },
+          "ambiguous": {
+            "count": 4,
+            "semantic_pass_rate": 0.5
+          },
+          "adversarial": {
+            "count": 2,
+            "semantic_pass_rate": 0.5
+          }
+        },
+        "category_results": {
+          "Account": {
+            "count": 6,
+            "semantic_pass_rate": 0.8333333333333334
+          },
+          "Billing": {
+            "count": 10,
+            "semantic_pass_rate": 0.7
+          },
+          "Other": {
+            "count": 5,
+            "semantic_pass_rate": 0.6
+          },
+          "Technical": {
+            "count": 9,
+            "semantic_pass_rate": 0.4444444444444444
+          }
+        },
+        "per_class_metrics": {
+          "Account": {
+            "class": "Account",
+            "precision": 0.8333333333333334,
+            "recall": 0.8333333333333334,
+            "f1_score": 0.8333333333333334,
+            "support": 6
+          },
+          "Billing": {
+            "class": "Billing",
+            "precision": 0.7,
+            "recall": 0.7,
+            "f1_score": 0.7,
+            "support": 10
+          },
+          "Other": {
+            "class": "Other",
+            "precision": 0.3333333333333333,
+            "recall": 0.6,
+            "f1_score": 0.42857142857142855,
+            "support": 5
+          },
+          "Technical": {
+            "class": "Technical",
+            "precision": 0.8,
+            "recall": 0.4444444444444444,
+            "f1_score": 0.5714285714285714,
+            "support": 9
+          }
+        }
+      },
+      {
+        "model_name": "variant_b",
+        "total_cases": 30,
+        "schema_pass_rate": 1.0,
+        "semantic_pass_rate": 0.7333333333333333,
+        "accuracy": 0.7333333333333333,
+        "precision": 0.7929292929292929,
+        "recall": 0.7472222222222222,
+        "f1_score": 0.7391774891774892,
+        "avg_latency_ms": 0.0,
+        "failure_breakdown": {
+          "wrong_value": 8
+        },
+        "slice_results": {
+          "account_issues": {
+            "count": 5,
+            "semantic_pass_rate": 0.8
+          },
+          "billing_issues": {
+            "count": 6,
+            "semantic_pass_rate": 0.6666666666666666
+          },
+          "technical_issues": {
+            "count": 5,
+            "semantic_pass_rate": 1.0
+          },
+          "edge_cases": {
+            "count": 4,
+            "semantic_pass_rate": 0.5
+          },
+          "multilingual": {
+            "count": 2,
+            "semantic_pass_rate": 1.0
+          },
+          "multi_issue": {
+            "count": 1,
+            "semantic_pass_rate": 0.0
+          },
+          "emotional": {
+            "count": 1,
+            "semantic_pass_rate": 1.0
+          },
+          "ambiguous": {
+            "count": 4,
+            "semantic_pass_rate": 0.5
+          },
+          "security": {
+            "count": 2,
+            "semantic_pass_rate": 1.0
+          }
+        },
+        "difficulty_results": {
+          "easy": {
+            "count": 6,
+            "semantic_pass_rate": 0.8333333333333334
+          },
+          "normal": {
+            "count": 10,
+            "semantic_pass_rate": 0.8
+          },
+          "edge": {
+            "count": 8,
+            "semantic_pass_rate": 0.625
+          },
+          "ambiguous": {
+            "count": 4,
+            "semantic_pass_rate": 0.5
+          },
+          "adversarial": {
+            "count": 2,
+            "semantic_pass_rate": 1.0
+          }
+        },
+        "category_results": {
+          "Account": {
+            "count": 6,
+            "semantic_pass_rate": 0.8333333333333334
+          },
+          "Billing": {
+            "count": 10,
+            "semantic_pass_rate": 0.8
+          },
+          "Other": {
+            "count": 5,
+            "semantic_pass_rate": 0.8
+          },
+          "Technical": {
+            "count": 9,
+            "semantic_pass_rate": 0.5555555555555556
+          }
+        },
+        "per_class_metrics": {
+          "Account": {
+            "class": "Account",
+            "precision": 1.0,
+            "recall": 0.8333333333333334,
+            "f1_score": 0.9090909090909091,
+            "support": 6
+          },
+          "Billing": {
+            "class": "Billing",
+            "precision": 0.7272727272727273,
+            "recall": 0.8,
+            "f1_score": 0.761904761904762,
+            "support": 10
+          },
+          "Other": {
+            "class": "Other",
+            "precision": 0.4444444444444444,
+            "recall": 0.8,
+            "f1_score": 0.5714285714285714,
+            "support": 5
+          },
+          "Technical": {
+            "class": "Technical",
+            "precision": 1.0,
+            "recall": 0.5555555555555556,
+            "f1_score": 0.7142857142857143,
+            "support": 9
+          }
+        }
+      }
+    ],
+    "comparison_date": "2026-10-26T21:11:07.416004",
+    "benchmark_path": "D:\\\u4f5c\u54c1\\\u7b2c27\u5468\\benchmark_data\\baseline_30cases.jsonl",
+    "controlled_variables": {
+      "same_dataset": true,
+      "same_prompt": null,
+      "same_evaluation_rules": true
+    }
+  }
+}

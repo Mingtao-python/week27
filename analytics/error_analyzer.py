@@ -79,15 +79,34 @@ class ErrorAnalyzer:
         errors = record.get('validation_errors', [])
         raw_output = record.get('raw_output', '')
         case_id = record.get('case_id', 'unknown')
+        case_info = self.case_map.get(case_id, {})
         
         # Determine failure category
         category = FailureCategory.SCHEMA_VIOLATION
         subcategory = None
         
+        parsed_output = record.get('parsed_output')
+        if (
+            case_info.get('security_case')
+            and parsed_output == case_info.get('attacker_requested_output')
+        ):
+            category = FailureCategory.PROMPT_INJECTION
+            subcategory = 'attacker_instruction_followed'
+
         for error in errors:
             error_lower = error.lower()
             
-            if 'missing' in error_lower and 'field' in error_lower:
+            if category == FailureCategory.PROMPT_INJECTION:
+                break
+            if 'prompt injection succeeded' in error_lower:
+                category = FailureCategory.PROMPT_INJECTION
+                subcategory = 'attacker_instruction_followed'
+            elif 'unexpected fields' in error_lower:
+                category = FailureCategory.EXTRA_FIELD
+                subcategory = 'unexpected_field'
+            elif 'does not match' in error_lower or 'expected value' in error_lower:
+                category = FailureCategory.WRONG_VALUE
+            elif 'missing' in error_lower and 'field' in error_lower:
                 category = FailureCategory.MISSING_FIELD
                 subcategory = 'required_field'
             elif 'invalid json' in error_lower or 'parse' in error_lower:
@@ -100,9 +119,6 @@ class ErrorAnalyzer:
                 category = FailureCategory.CROSS_FIELD_INCONSISTENCY
             elif 'does not equal' in error_lower or 'mismatch' in error_lower:
                 category = FailureCategory.CROSS_FIELD_INCONSISTENCY
-            elif 'ignore' in raw_output.lower() or 'pass' in raw_output.lower():
-                category = FailureCategory.PROMPT_INJECTION
-                subcategory = 'injection_attempt'
             elif 'error:' in raw_output.lower() or 'exception' in raw_output.lower():
                 category = FailureCategory.PARSE_FAILURE
                 subcategory = 'runtime_error'
@@ -123,9 +139,6 @@ class ErrorAnalyzer:
         elif category == FailureCategory.INVALID_ENUM:
             severity = SeverityLevel.LOW
         
-        # Get case context
-        case_info = self.case_map.get(case_id, {})
-        
         return {
             'case_id': case_id,
             'model_name': record.get('model_name', 'unknown'),
@@ -134,6 +147,7 @@ class ErrorAnalyzer:
             'severity': severity.value,
             'errors': errors,
             'raw_output_preview': raw_output[:200] if len(raw_output) > 200 else raw_output,
+            'original_input': case_info.get('input_prompt'),
             'expected_output': case_info.get('expected_output'),
             'difficulty': case_info.get('difficulty', 'unknown'),
             'slice_category': case_info.get('slice_category', 'unknown'),
@@ -344,14 +358,25 @@ def create_regression_suite(failures: List[Dict], output_path: str) -> str:
         SeverityLevel.LOW.value: 3,
     }
     
-    # Sort failures by severity
-    sorted_failures = sorted(failures, key=lambda f: priority_order.get(f['severity'], 99))
-    
-    # Select top 8+ diverse failures
+    eligible_failures = [
+        failure for failure in failures
+        if failure.get('original_input') is not None
+        and failure.get('expected_output') is not None
+    ]
+    if len(eligible_failures) < 8:
+        raise ValueError(
+            f"Need at least 8 verified failures with original inputs and expected outputs; "
+            f"found {len(eligible_failures)}"
+        )
+
+    # Select up to 12 diverse failures
     selected = []
     seen_categories = set()
     
-    for failure in sorted_failures:
+    for failure in sorted(
+        eligible_failures,
+        key=lambda item: priority_order.get(item['severity'], 99)
+    ):
         if len(selected) >= 12:
             break
         
@@ -370,8 +395,10 @@ def create_regression_suite(failures: List[Dict], output_path: str) -> str:
             'description': f"Regression test for {failure['failure_category']} in {failure['slice_category']} slice",
             'severity': failure['severity'],
             'failure_category': failure['failure_category'],
+            'expected_output': failure['expected_output'],
+            'previous_failure': failure['failure_category'],
             'expected_behavior': f"Model should produce valid output without {failure['failure_category']}",
-            'input_prompt': failure.get('raw_output_preview', ''),  # Would need actual prompt in real implementation
+            'input_prompt': failure['original_input'],
             'is_fixed': False
         })
     
@@ -382,3 +409,45 @@ def create_regression_suite(failures: List[Dict], output_path: str) -> str:
         json.dump(regression_cases, f, indent=2)
     
     return str(output_path)
+
+
+def compare_regression_runs(
+    regression_cases: List[Dict[str, Any]],
+    before_model_fn,
+    after_model_fn
+) -> Dict[str, Any]:
+    """Run the same frozen cases before and after a controlled change."""
+    if not regression_cases:
+        raise ValueError("Regression suite cannot be empty")
+
+    results = []
+    for case in regression_cases:
+        expected = case['expected_output']
+        before_output = before_model_fn(case['input_prompt']).get('parsed_output')
+        after_output = after_model_fn(case['input_prompt']).get('parsed_output')
+        before_passed = isinstance(before_output, dict) and all(
+            before_output.get(field) == value for field, value in expected.items()
+        )
+        after_passed = isinstance(after_output, dict) and all(
+            after_output.get(field) == value for field, value in expected.items()
+        )
+        if not before_passed and after_passed:
+            status = 'improved'
+        elif before_passed and not after_passed:
+            status = 'regressed'
+        else:
+            status = 'unchanged'
+        results.append({
+            'case_id': case['id'],
+            'status': status,
+            'before_passed': before_passed,
+            'after_passed': after_passed
+        })
+
+    return {
+        'total_cases': len(results),
+        'improved': sum(result['status'] == 'improved' for result in results),
+        'unchanged': sum(result['status'] == 'unchanged' for result in results),
+        'regressed': sum(result['status'] == 'regressed' for result in results),
+        'results': results
+    }

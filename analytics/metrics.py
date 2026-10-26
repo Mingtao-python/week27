@@ -1,12 +1,3 @@
-"""
-Week27 Metrics Library - Part 4
-Author: Mingtao
-Version: 1.0
-
-Implements core evaluation metrics without relying solely on ready-made functions.
-All calculations include zero-division safety and hand-verification support.
-"""
-
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
@@ -73,7 +64,7 @@ def calculate_f1_score(precision: float, recall: float) -> float:
     return 2 * (precision * recall) / (precision + recall)
 
 
-def calculate_all_metrics(tp: int, fp: int, fn: int, tn: int) -> Dict[str, float]:
+def calculate_all_metrics(tp: int, fp: int, fn: int, tn: int) -> Dict[str, float | Dict[str, int]]:
     """
     Calculate all confusion matrix metrics at once.
     

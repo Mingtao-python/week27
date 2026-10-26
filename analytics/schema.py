@@ -124,6 +124,9 @@ class EvaluationResult(TypedDict):
     avg_latency_ms: Optional[float]
     failure_breakdown: dict  # By FailureCategory
     slice_results: dict  # By slice_category
+    difficulty_results: dict
+    category_results: dict
+    per_class_metrics: dict
 
 
 # =============================================================================
@@ -151,6 +154,10 @@ def validate_support_ticket(data: dict) -> tuple[bool, List[str]]:
     Returns (is_valid, list_of_errors)
     """
     errors = []
+
+    extra_fields = set(data) - set(SUPPORT_TICKET_REQUIRED_FIELDS)
+    if extra_fields:
+        errors.append(f"Unexpected fields: {sorted(extra_fields)}")
     
     # Check required fields
     for field in SUPPORT_TICKET_REQUIRED_FIELDS:
@@ -186,6 +193,10 @@ def validate_invoice(data: dict) -> tuple[bool, List[str]]:
     Returns (is_valid, list_of_errors)
     """
     errors = []
+
+    extra_fields = set(data) - set(INVOICE_REQUIRED_FIELDS)
+    if extra_fields:
+        errors.append(f"Unexpected fields: {sorted(extra_fields)}")
     
     # Check required fields
     for field in INVOICE_REQUIRED_FIELDS:
