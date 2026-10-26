@@ -5,12 +5,12 @@ from datetime import datetime
 from typing import List, Dict, Optional, Callable, Any
 from pathlib import Path
 
-from analytics.schema import (
+from analytics.schema import ( # don't work in vs code but does on tests\test_all.py with pytest, so I have no idea why, but it works, so I will leave it as is.
     BenchmarkCase,
     ModelOutputRecord,
     EvaluationResult,
     FailureCategory,
-    SeverityLevel, # Not used yet, may be useful for afterwords improvements
+    SeverityLevel, # Not used yet, may be useful for afterwords improvements --
     validate_support_ticket,
     validate_invoice,
 )
