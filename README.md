@@ -96,6 +96,7 @@ assert verification["recall_match"]    # True
 ```
 
 **Available Metrics**:
+
 - Accuracy, Precision, Recall, F1 Score
 - Per-class metrics for multi-class classification
 - Macro-averaged metrics (better for imbalanced datasets)
@@ -131,6 +132,7 @@ report_path = runner.export_report()
 ```
 
 **Benchmark Features**:
+
 - ✅ JSONL/CSV format support
 - ✅ Malformed input handling (skip & continue)
 - ✅ Resume after interruption
@@ -163,6 +165,7 @@ regression_path = create_regression_suite(analysis["all_failures"], "./regressio
 ```
 
 **Failure Categories**:
+
 - `invalid_json` - Parse failures
 - `missing_field` - Required fields absent
 - `wrong_type` - Type mismatches
@@ -172,6 +175,7 @@ regression_path = create_regression_suite(analysis["all_failures"], "./regressio
 - `prompt_injection` - A tagged attack case where output matches the attacker's requested output
 
 **Severity Levels**:
+
 - `critical` - Prompt injection, invented facts
 - `high` - Data corruption risk
 - `medium` - Missing fields
@@ -182,13 +186,15 @@ regression_path = create_regression_suite(analysis["all_failures"], "./regressio
 ## 🔒 Security & Integrity (Part 7)
 
 ### Protected Against:
+
 1. **Prompt Injection**: Detection heuristics in error analyzer
 2. **Ground Truth Leakage**: Separation of `input_prompt` and `expected_output`
 3. **Selective Reporting**: All metrics exported, not just favorable ones
 4. **Benchmark Poisoning**: Version control for datasets and evaluation code
 
 ### Trust Boundaries:
-```
+
+```text
 Dataset → Benchmark Runner → Model → Evaluator → Report
    ↑            ↑              ↑         ↑          ↑
 Untrusted   Controlled    Untrusted  Secret    Audited
