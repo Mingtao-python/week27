@@ -1,19 +1,6 @@
-"""
-Week27 Benchmark Runner - Part 4 & 5
-Author: Mingtao
-Version: 1.0
-
-Implements a repeatable benchmark harness that:
-- Loads JSONL/CSV benchmark cases
-- Runs or ingests outputs for multiple model/configuration variants
-- Stores raw output and metadata
-- Supports resume after interruption
-- Produces per-case and aggregate results
-"""
-
 import json
-import csv
 import os
+import csv
 from datetime import datetime
 from typing import List, Dict, Optional, Callable, Any
 from pathlib import Path
@@ -23,31 +10,20 @@ from analytics.schema import (
     ModelOutputRecord,
     EvaluationResult,
     FailureCategory,
-    SeverityLevel,
+    SeverityLevel, # Not used yet, may be useful for afterwords improvements
     validate_support_ticket,
     validate_invoice,
 )
 from analytics.metrics import (
-    calculate_all_metrics,
-    calculate_macro_metrics,
-    calculate_schema_validity_rate,
-    calculate_field_accuracy,
-    calculate_exact_match,
+    calculate_all_metrics,# all not used yet, may be useful for afterwords improvements
+    calculate_macro_metrics,# all not used yet, may be useful for afterwords improvements
+    calculate_schema_validity_rate,# all not used yet, may be useful for afterwords improvements
+    calculate_field_accuracy,# all not used yet, may be useful for afterwords improvements
+    calculate_exact_match,# all not used yet, may be useful for afterwords improvements
 )
 
 
 class BenchmarkRunner:
-    """
-    Main benchmark runner for LLM evaluation.
-    
-    Features:
-    - Load benchmark datasets from JSONL or CSV
-    - Run models or ingest pre-computed outputs
-    - Store raw outputs for audit
-    - Resume interrupted runs
-    - Generate per-slice and aggregate metrics
-    """
-    
     def __init__(self, benchmark_path: str, output_dir: str = "./benchmark_results"):
         self.benchmark_path = Path(benchmark_path)
         self.output_dir = Path(output_dir)
@@ -112,18 +88,6 @@ class BenchmarkRunner:
         model_version: str = "1.0",
         resume: bool = True
     ) -> List[ModelOutputRecord]:
-        """
-        Run a model function on all benchmark cases.
-        
-        Args:
-            model_name: Name identifier for the model
-            model_fn: Function that takes prompt string and returns dict with 'raw_output' and optionally 'parsed_output'
-            model_version: Version string for the model
-            resume: If True, skip cases already completed
-        
-        Returns:
-            List of ModelOutputRecord for this model
-        """
         records = []
         results_file = self.output_dir / f"{model_name}_results.jsonl"
         

@@ -1,12 +1,3 @@
-"""
-Week27 Event Schema - Single Source of Truth
-Author: Mingtao
-Version: 1.0
-
-This module defines all structured output schemas and event types for the LLM Evaluation Tool.
-All other modules must import from this file to ensure consistency.
-"""
-
 from typing import TypedDict, List, Optional, Literal
 from enum import Enum
 
@@ -16,7 +7,6 @@ from enum import Enum
 # =============================================================================
 
 class SupportTicketSchema(TypedDict):
-    """Schema for support ticket extraction (Part 2, Question 2)"""
     customer_name: str
     issue_type: Literal["Billing", "Technical", "Account", "Other"]
     priority: Literal["Low", "Medium", "High", "Critical"]
