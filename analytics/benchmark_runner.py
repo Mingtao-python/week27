@@ -264,7 +264,6 @@ class BenchmarkRunner:
         failure_breakdown = {}
         for record in records:
             if not record['semantic_valid'] and record['validation_errors']:
-                # Categorize failures (simplified)
                 for error in record['validation_errors']:
                     if 'Missing' in error:
                         cat = FailureCategory.MISSING_FIELD.value

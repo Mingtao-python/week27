@@ -19,11 +19,15 @@ week27/
 │   ├── benchmark_runner.py # ⭐ Benchmark harness
 │   └── error_analyzer.py   # ⭐ Error categorization & analysis
 ├── tests/                  # Automated test suite
-│   └── test_all.py         # 42 focused tests
+│   ├── test_all.py         # 42 evaluator tests
+│   └── test_llm_experiment.py # 17 offline experiment tests
 ├── benchmark_data/         # Benchmark datasets
 │   └── baseline_30cases.jsonl
 ├── examples/
-│   └── compare_variants.py # Reproducible local comparison
+│   ├── compare_variants.py # Reproducible rule-based comparison
+│   ├── llm_client.py       # HTTP model adapter
+│   └── run_llm_variants.py # Real LLM comparison and regression workflow
+├── results/               # Existing rule-based results; LLM files are created by a live run
 ├── planning/               # Original planning documents
 └── README.md               # This file
 ```
@@ -203,7 +207,7 @@ Data        Variables     Output     Logic     Output
 
 ---
 
-## ✅ Test Coverage (42 Tests)
+## ✅ Test Coverage (59 Tests)
 
 All tests correspond to actual `if/raise` logic in code:
 
@@ -217,10 +221,11 @@ All tests correspond to actual `if/raise` logic in code:
 | Error Analyzer | 5 | Categorization, regression suites and before/after comparison |
 | Security | 4 | Explicit attack-case handling |
 | Edge Cases | 4 | Empty data, extreme values |
+| LLM Experiment | 17 | Adapter, fixed settings, real-call workflow, frozen regression, failed runs and provenance |
 
 Run tests:
 ```bash
-python -m pytest tests/test_all.py -v
+python -m pytest -q
 ```
 
 ---
@@ -305,6 +310,64 @@ These are measured rule-based harness results, not evidence about an LLM.
 
 Failure reports preserve the original benchmark input and expected output. Regression suites are generated only when at least eight verified failures contain both values; the same frozen cases can be evaluated before and after a controlled change with `compare_regression_runs()`.
 
+## Real LLM Experiment
+
+The real runner is ready and tested offline. A live LLM run has **not** been completed in this
+revision. The existing `variant_a` and `variant_b` results remain rule-based examples.
+No simulated test responses are saved as real experiment results.
+
+Use one fixed model ID and the same endpoint for both variants:
+
+```powershell
+python -m examples.run_llm_variants --base-url https://api.llm7.io/v1 --model FIXED_MODEL_ID --api-key-env llm7_api
+```
+
+Set the credential in that environment variable before running. Credentials are not written
+to result files. Another OpenAI-compatible endpoint can be supplied with `--base-url` and
+`--api-key-env`. Routing aliases such as `default`, `fast` and `pro` are rejected.
+
+- Variant A: baseline classification prompt.
+- Variant B: explicit label definitions, ticket-data boundary and JSON instructions.
+- Fixed controls: the same 30 cases, model, temperature 0, max tokens 64, parser and evaluator.
+- Only the prompt changes. Neither expected outputs nor case labels are sent to the model.
+
+The runner first calls Variant A on all 30 cases, freezes eight verified failures if available,
+then calls Variant B on the same 30 cases. It makes 16 additional calls to run both prompts
+against the same frozen eight inputs. Regression results are freshly generated, not replayed.
+Selection uses baseline failure severity, before examining Variant B results.
+
+The live run creates:
+
+```text
+results/
+├── llm_variant_a_results.jsonl
+├── llm_variant_b_results.jsonl
+├── llm_comparison_report.json
+├── llm_requests.jsonl
+└── llm_run_status.json
+regression/
+├── regression_8cases.json
+├── before_results.json
+├── after_results.json
+└── regression_comparison.json
+```
+
+The comparison includes accuracy, macro precision/recall/F1, schema validity, difficulty and
+category slices, measured HTTP latency and provider token usage when available. The request
+audit preserves prompts, raw responses, response IDs, model IDs and usage. Dataset/evaluator
+hashes and settings are recorded for reproducibility. Every response model ID must match;
+the service's hidden backend revisions cannot be independently verified.
+
+The regression file preserves original user inputs, expected labels, previous predictions,
+failure categories and severity. The report lists before/after correctness and all improved,
+unchanged and regressed IDs, plus a recommendation.
+
+If there are fewer than eight baseline failures, the runner reports `regression_incomplete`
+and exits with code 2. It does not manufacture failures or substitute the rule-based outputs.
+API errors stop the experiment and mark the run failed. Existing experiment files are never
+silently overwritten; use `--output-root PATH` for a separate run. Offline tests simulate API
+responses only inside temporary test folders and do not prove live model performance.
+
 ## Security
 
 Adversarial benchmark cases explicitly declare the attacker's requested output. Prompt-injection failures are counted only when the model returns that tagged output, not from incidental words such as “ignore” or “pass”.
@@ -319,7 +382,7 @@ Use this implementation to validate evaluator behavior, then run two real model/
 
 ## 📝 Pre-Commit Checklist
 
-Following the coding style guide:
+Before committing:
 
 - [ ] **Schema Consistency**: All schemas in `schema.py`, imported everywhere
 - [ ] **Real Instrumentation**: Actual validation logic, not print statements
