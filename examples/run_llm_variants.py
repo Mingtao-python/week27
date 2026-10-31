@@ -2,7 +2,7 @@
 
 Example (after authorizing the endpoint and credential):
 python -m examples.run_llm_variants --base-url https://api.llm7.io/v1 \
-    --model FIXED_MODEL_ID --api-key-env llm7_api
+    --model mistral-Nemo-Instruct-2407 --api-key-env llm7_api --output-root rerun
 """
 
 import argparse
@@ -94,7 +94,7 @@ def freeze_failures(cases, records, destination):
     write_json(destination, frozen)
     return frozen, len(failures)
 
-def run_experiment(client, benchmark=ROOT / "benchmark_data/baseline_30cases.jsonl", output_root=ROOT):
+def run_experiment(client, benchmark=ROOT / "benchmark_data/baseline_30cases.jsonl", output_root=ROOT, resume=False):
     benchmark, output_root = Path(benchmark), Path(output_root)
     cases = load_cases(benchmark)
     results = output_root / "results"
@@ -104,7 +104,7 @@ def run_experiment(client, benchmark=ROOT / "benchmark_data/baseline_30cases.jso
                   "llm_comparison_report.json", "llm_requests.jsonl", "llm_run_status.json")]
     protected += [regression / name for name in
                   ("regression_8cases.json", "before_results.json", "after_results.json", "regression_comparison.json")]
-    if any(path.exists() for path in protected):
+    if any(path.exists() for path in protected) and not resume:
         raise ValueError("Experiment files already exist. Choose a new --output-root to preserve them.")
     results.mkdir(parents=True, exist_ok=True)
     metadata = {
@@ -116,6 +116,25 @@ def run_experiment(client, benchmark=ROOT / "benchmark_data/baseline_30cases.jso
         "evaluator_sha256": {name: digest(ROOT / "analytics" / name)
                              for name in ("schema.py", "metrics.py", "benchmark_runner.py", "error_analyzer.py")}
     }
+    cached = {}
+    if resume:
+        status_path = results / "llm_run_status.json"
+        previous = json.loads(status_path.read_text(encoding="utf-8"))
+        if previous.get("status") != "failed":
+            raise ValueError("Only a failed experiment may be resumed.")
+        previous_metadata = previous["metadata"]
+        for field in ("benchmark_sha256", "benchmark_case_ids", "prompt", "model_settings", "evaluator_sha256"):
+            if metadata[field] != previous_metadata.get(field):
+                raise ValueError("Resume configuration changed: " + field)
+        metadata = {**previous_metadata, "resumed_at": datetime.now(timezone.utc).isoformat()}
+        audit_path = results / "llm_requests.jsonl"
+        if audit_path.exists():
+            for line in audit_path.read_text(encoding="utf-8").splitlines():
+                row = json.loads(line)
+                key = (row["phase"], row["variant"], row["case_id"])
+                if key in cached:
+                    raise ValueError("Duplicate response in saved request audit.")
+                cached[key] = row
     write_json(results / "llm_run_status.json", {"status": "running", "metadata": metadata})
     observed_model = None
     usage = {}
@@ -123,11 +142,20 @@ def run_experiment(client, benchmark=ROOT / "benchmark_data/baseline_30cases.jso
         nonlocal observed_model
         outputs = []
         for index, case in enumerate(batch, 1):
-            output = client.call(PROMPTS[variant], case["input_prompt"])
-            audit = {"phase": phase, "variant": variant, "case_id": case["id"],
-                     "timestamp": datetime.now(timezone.utc).isoformat(), **output}
-            with (results / "llm_requests.jsonl").open("a", encoding="utf-8") as file:
-                file.write(json.dumps(audit, ensure_ascii=False) + "\n")
+            key = (phase, variant, case["id"])
+            if key in cached:
+                output = cached[key]
+                expected_request = {"model": client.model, "temperature": client.temperature,
+                                    "max_tokens": client.max_tokens, "messages": [{"role": "user",
+                                    "content": f"{PROMPTS[variant]}\n\nSupport ticket:\n{case['input_prompt']}"}]}
+                if output.get("request") != expected_request or parse_response(output["raw_output"]) != output["parsed_output"]:
+                    raise ValueError("Saved request does not match the current case and configuration.")
+            else:
+                output = client.call(PROMPTS[variant], case["input_prompt"])
+                audit = {"phase": phase, "variant": variant, "case_id": case["id"],
+                         "timestamp": datetime.now(timezone.utc).isoformat(), **output}
+                with (results / "llm_requests.jsonl").open("a", encoding="utf-8") as file:
+                    file.write(json.dumps(audit, ensure_ascii=False) + "\n")
             returned_model = output["response_model"]
             if observed_model is None:
                 observed_model = returned_model
@@ -163,7 +191,7 @@ def run_experiment(client, benchmark=ROOT / "benchmark_data/baseline_30cases.jso
             "same_max_tokens": True, "same_evaluation_rules": True, "same_prompt": False,
             "changed_variable": "prompt"}
         write_json(results / "llm_comparison_report.json", report)
-        status = {"status": "complete", "metadata": metadata, "baseline_failures": failure_count,
+        status = {"status": "completed", "metadata": metadata, "baseline_failures": failure_count,
                   "response_model": observed_model}
         if frozen is None:
             status.update(status="regression_incomplete",
@@ -202,14 +230,15 @@ def main():
     parser.add_argument("--model", required=True, help="A fixed model ID, not default/fast/pro routing.")
     parser.add_argument("--api-key-env", default="OPENAI_API_KEY", help="Name of the environment variable holding the key.")
     parser.add_argument("--output-root", type=Path, default=ROOT)
+    parser.add_argument("--resume", action="store_true", help="Resume a failed run with exactly the same controls.")
     args = parser.parse_args()
     key = os.environ.get(args.api_key_env)
     if not key:
         parser.error(f"Credential variable {args.api_key_env} is not set.")
     client = ModelClient(key, args.model, args.base_url)
-    status = run_experiment(client, output_root=args.output_root)
+    status = run_experiment(client, output_root=args.output_root, resume=args.resume)
     print("Experiment status:", status["status"])
-    if status["status"] != "complete":
+    if status["status"] != "completed":
         print(status["reason"])
         return 2
     return 0

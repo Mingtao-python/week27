@@ -39,7 +39,7 @@ class FakeClient:
                 "usage": {"total_tokens": 3}, "latency_ms": 12.5, "response_model": self.model,
                 "response_id": str(len(self.calls)), "finish_reason": "stop",
                 "request": {"model": self.model, "temperature": self.temperature, "max_tokens": self.max_tokens,
-                            "messages": [{"role": "user", "content": instructions + "\n" + prompt}]}}
+                            "messages": [{"role": "user", "content": instructions + "\n\nSupport ticket:\n" + prompt}]}}
 
 @pytest.mark.parametrize("content,expected", [
     ("Billing", {"label": "Billing"}), ('{"label":"Technical"}', {"label": "Technical"}),
@@ -62,7 +62,7 @@ def test_real_adapter_preserves_output_usage_and_request(monkeypatch):
     assert "expected_output" not in json.dumps(payload)
     assert "test-secret" not in json.dumps(result)
 
-@pytest.mark.parametrize("model", ["default", "fast", "pro", "auto"])
+@pytest.mark.parametrize("model", ["default", "fast", "pro", "auto", "FIXED_MODEL_ID"])
 def test_random_routing_alias_rejected(model):
     with pytest.raises(ValueError, match="fixed"):
         ModelClient("secret", model, "https://example.invalid/v1")
@@ -79,7 +79,7 @@ def test_full_workflow_freezes_and_reruns_same_eight(tmp_path):
     path, cases = dataset(tmp_path)
     client = FakeClient()
     status = run_experiment(client, path, tmp_path)
-    assert status["status"] == "complete"
+    assert status["status"] == "completed"
     assert len(client.calls) == 76  # 30 + 30 + 8 before + 8 after; no cached regression calls.
     frozen = json.loads((tmp_path / "regression/regression_8cases.json").read_text())
     assert len(frozen) == 8
@@ -154,3 +154,49 @@ def test_api_failure_stops_without_thirty_fake_error_records(tmp_path):
         run_experiment(client, path, tmp_path)
     client.call.assert_called_once()
     assert not (tmp_path / "results/llm_variant_a_results.jsonl").exists()
+
+def test_rate_limit_retries_are_bounded(monkeypatch):
+    transport = MagicMock(side_effect=HTTPError("https://example.invalid", 429, "limited", {"Retry-After": "0"}, None))
+    monkeypatch.setattr("examples.llm_client.urlopen", transport)
+    monkeypatch.setattr("examples.llm_client.time.sleep", MagicMock())
+    with pytest.raises(RuntimeError, match="429"):
+        ModelClient("secret", "fixed", "https://example.invalid/v1").call("Classify", "ticket")
+    assert transport.call_count == 3
+
+def test_rate_limit_then_success(monkeypatch):
+    response = MagicMock()
+    response.__enter__.return_value.read.return_value = json.dumps({
+        "model": "fixed", "choices": [{"message": {"content": "Billing"}, "finish_reason": "stop"}]}).encode()
+    transport = MagicMock(side_effect=[
+        HTTPError("https://example.invalid", 429, "limited", {"Retry-After": "0"}, None), response])
+    monkeypatch.setattr("examples.llm_client.urlopen", transport)
+    monkeypatch.setattr("examples.llm_client.time.sleep", MagicMock())
+    result = ModelClient("secret", "fixed", "https://example.invalid/v1").call("Classify", "ticket")
+    assert result["raw_output"] == "Billing" and result["network_attempts"] == 2
+
+def test_resume_keeps_successful_calls_and_does_not_duplicate_them(tmp_path):
+    path, _ = dataset(tmp_path)
+    client = FakeClient()
+    original = client.call
+    def interrupted(instructions, prompt):
+        if len(client.calls) == 4:
+            raise RuntimeError("Interrupted")
+        return original(instructions, prompt)
+    client.call = interrupted
+    with pytest.raises(RuntimeError, match="Interrupted"):
+        run_experiment(client, path, tmp_path)
+    client.call = original
+    assert run_experiment(client, path, tmp_path, resume=True)["status"] == "completed"
+    assert len(client.calls) == 76
+    rows = [json.loads(line) for line in (tmp_path / "results/llm_requests.jsonl").read_text().splitlines()]
+    assert len(rows) == len({(r["phase"],r["variant"],r["case_id"]) for r in rows}) == 76
+
+def test_resume_rejects_changed_controls(tmp_path):
+    path, _ = dataset(tmp_path)
+    client = FakeClient()
+    client.call = MagicMock(side_effect=RuntimeError("Interrupted"))
+    with pytest.raises(RuntimeError):
+        run_experiment(client, path, tmp_path)
+    client.temperature = 1
+    with pytest.raises(ValueError, match="configuration changed"):
+        run_experiment(client, path, tmp_path, resume=True)

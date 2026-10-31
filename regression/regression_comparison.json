@@ -1,0 +1,75 @@
+{
+  "total_cases": 8,
+  "improved": 7,
+  "unchanged": 1,
+  "regressed": 0,
+  "results": [
+    {
+      "case_id": "regression_001",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    },
+    {
+      "case_id": "regression_002",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    },
+    {
+      "case_id": "regression_003",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    },
+    {
+      "case_id": "regression_004",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    },
+    {
+      "case_id": "regression_005",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    },
+    {
+      "case_id": "regression_006",
+      "status": "unchanged",
+      "before_passed": false,
+      "after_passed": false
+    },
+    {
+      "case_id": "regression_007",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    },
+    {
+      "case_id": "regression_008",
+      "status": "improved",
+      "before_passed": false,
+      "after_passed": true
+    }
+  ],
+  "total": 8,
+  "frozen_sha256": "20ed70cd37ac6f2333b742dc3598f645bc351654c94c29e770b8302690f12d67",
+  "controlled_change": "Prompt only: explicit definitions, ticket-data boundary and JSON instructions.",
+  "before_correct": 0,
+  "after_correct": 7,
+  "improved_ids": [
+    "regression_001",
+    "regression_002",
+    "regression_003",
+    "regression_004",
+    "regression_005",
+    "regression_007",
+    "regression_008"
+  ],
+  "unchanged_ids": [
+    "regression_006"
+  ],
+  "regressed_ids": [],
+  "decision": "Keep for further testing; inspect remaining failures."
+}

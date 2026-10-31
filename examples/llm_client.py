@@ -20,7 +20,7 @@ def parse_response(content):
 class ModelClient:
     def __init__(self, api_key, model, base_url, temperature=0, max_tokens=64,
                  timeout=60, delay=1.1):
-        if not model or model.lower() in ROUTING_ALIASES:
+        if not model or model.lower() in ROUTING_ALIASES or model == "FIXED_MODEL_ID":
             raise ValueError("Use a fixed model ID, not a routing alias.")
         address = urlparse(base_url)
         if not address.hostname or address.username or address.password or address.query or address.fragment:
@@ -51,14 +51,26 @@ class ModelClient:
                           data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
         self.last_request = time.monotonic()
         start = time.perf_counter()
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except HTTPError as error:
-            # Do not log response bodies, headers or credentials.
-            raise RuntimeError(f"LLM request failed: HTTP {error.code}") from None
-        except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError):
-            raise RuntimeError("LLM request failed: connection, timeout or invalid API response") from None
+        for attempt in range(3):
+            try:
+                with urlopen(request, timeout=self.timeout) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                break
+            except HTTPError as error:
+                if error.code == 429 and attempt < 2:
+                    try:
+                        delay = max(1, float(error.headers.get("Retry-After", "60")))
+                    except (AttributeError, ValueError):
+                        delay = 60
+                    if delay > 120:
+                        raise RuntimeError("LLM rate limit requires a longer pause; resume later.") from None
+                    print(f"HTTP 429: waiting {delay:g}s before retry {attempt + 1}/2", flush=True)
+                    time.sleep(delay)
+                    continue
+                # Do not log response bodies, headers or credentials.
+                raise RuntimeError(f"LLM request failed: HTTP {error.code}") from None
+            except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError):
+                raise RuntimeError("LLM request failed: connection, timeout or invalid API response") from None
         try:
             choice = data["choices"][0]
             content = choice["message"]["content"]
@@ -74,4 +86,4 @@ class ModelClient:
                 "finish_reason": choice.get("finish_reason"),
                 "system_fingerprint": data.get("system_fingerprint"),
                 "latency_ms": (time.perf_counter() - start) * 1000,
-                "request": payload}
+                "request": payload, "network_attempts": attempt + 1}

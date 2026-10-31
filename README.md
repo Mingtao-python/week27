@@ -20,7 +20,7 @@ week27/
 │   └── error_analyzer.py   # ⭐ Error categorization & analysis
 ├── tests/                  # Automated test suite
 │   ├── test_all.py         # 42 evaluator tests
-│   └── test_llm_experiment.py # 17 offline experiment tests
+│   └── test_llm_experiment.py # 22 offline experiment tests
 ├── benchmark_data/         # Benchmark datasets
 │   └── baseline_30cases.jsonl
 ├── examples/
@@ -207,7 +207,7 @@ Data        Variables     Output     Logic     Output
 
 ---
 
-## ✅ Test Coverage (59 Tests)
+## ✅ Test Coverage (64 Tests)
 
 All tests correspond to actual `if/raise` logic in code:
 
@@ -221,7 +221,7 @@ All tests correspond to actual `if/raise` logic in code:
 | Error Analyzer | 5 | Categorization, regression suites and before/after comparison |
 | Security | 4 | Explicit attack-case handling |
 | Edge Cases | 4 | Empty data, extreme values |
-| LLM Experiment | 17 | Adapter, fixed settings, real-call workflow, frozen regression, failed runs and provenance |
+| LLM Experiment | 22 | Adapter, fixed settings, real-call workflow, frozen regression, failed runs and provenance |
 
 Run tests:
 ```bash
@@ -312,31 +312,67 @@ Failure reports preserve the original benchmark input and expected output. Regre
 
 ## Real LLM Experiment
 
-The real runner is ready and tested offline. A live LLM run has **not** been completed in this
-revision. The existing `variant_a` and `variant_b` results remain rule-based examples.
-No simulated test responses are saved as real experiment results.
-
-Use one fixed model ID and the same endpoint for both variants:
-
-```powershell
-python -m examples.run_llm_variants --base-url https://api.llm7.io/v1 --model FIXED_MODEL_ID --api-key-env llm7_api
-```
-
-Set the credential in that environment variable before running. Credentials are not written
-to result files. Another OpenAI-compatible endpoint can be supplied with `--base-url` and
-`--api-key-env`. Routing aliases such as `default`, `fast` and `pro` are rejected.
+The live run completed on 31 October 2026 using `mistral-Nemo-Instruct-2407` through LLM7.
+Both variants contain 30 real responses. The eight-case regression adds 16 fresh responses.
+`results/llm_run_status.json` records `"status": "completed"`.
 
 - Variant A: baseline classification prompt.
 - Variant B: explicit label definitions, ticket-data boundary and JSON instructions.
 - Fixed controls: the same 30 cases, model, temperature 0, max tokens 64, parser and evaluator.
-- Only the prompt changes. Neither expected outputs nor case labels are sent to the model.
+- Only the prompt changes. Expected outputs and prior predictions are never sent to the model.
 
-The runner first calls Variant A on all 30 cases, freezes eight verified failures if available,
-then calls Variant B on the same 30 cases. It makes 16 additional calls to run both prompts
-against the same frozen eight inputs. Regression results are freshly generated, not replayed.
-Selection uses baseline failure severity, before examining Variant B results.
+### Measured comparison
 
-The live run creates:
+| Metric | Variant A | Variant B |
+|---|---:|---:|
+| Cases | 30 | 30 |
+| Accuracy | 0.5333 | 0.9000 |
+| Macro precision | 0.5367 | 0.8973 |
+| Macro recall | 0.4556 | 0.9028 |
+| Macro F1 | 0.4546 | 0.8915 |
+| Schema validity | 93.3% | 100.0% |
+| Mean observed HTTP latency | 1812.5 ms | 1127.6 ms |
+| Provider-reported total tokens | 1311 | 3855 |
+
+Usage was available for all 30 cases in each variant. Full per-class metrics, difficulty and
+category slices are in `results/llm_comparison_report.json`.
+
+| Difficulty | Cases | A accuracy | B accuracy |
+|---|---:|---:|---:|
+| easy | 6 | 0.6667 | 1.0000 |
+| normal | 10 | 0.7000 | 0.9000 |
+| edge | 8 | 0.5000 | 0.7500 |
+| ambiguous | 4 | 0.2500 | 1.0000 |
+| adversarial | 2 | 0.0000 | 1.0000 |
+
+| Expected category | Cases | A accuracy | B accuracy |
+|---|---:|---:|---:|
+| Account | 6 | 0.1667 | 0.8333 |
+| Billing | 10 | 0.9000 | 1.0000 |
+| Other | 5 | 0.2000 | 1.0000 |
+| Technical | 9 | 0.5556 | 0.7778 |
+
+### Frozen regression
+
+Variant A produced 14 actual failures. Eight were frozen by severity before examining
+Variant B results. The suite preserves original ticket inputs, expected labels, previous
+predictions and failure categories. Both prompts were then called again on those same eight
+inputs; benchmark answers were not substituted for regression calls.
+
+Controlled change: the prompt's class definitions, ticket-data boundary and JSON instructions.
+
+- Before: 0/8 correct.
+- After: 7/8 correct.
+- Improved: 7; unchanged: 1; regressed: 0.
+- Remaining failure: `regression_006` / `normal_008`, two-factor authentication not sending codes.
+  Expected `Account`; the model still predicted `Technical`.
+- Decision: keep the structured prompt for further testing and investigate this remaining
+  account/technical boundary. Validate on a larger held-out set before a wider recommendation.
+
+The frozen suite is a baseline snapshot, so its initial `is_fixed` fields are not rewritten.
+Current outcomes belong to `regression_comparison.json`, which lists every changed case.
+
+### Saved evidence
 
 ```text
 results/
@@ -352,21 +388,31 @@ regression/
 └── regression_comparison.json
 ```
 
-The comparison includes accuracy, macro precision/recall/F1, schema validity, difficulty and
-category slices, measured HTTP latency and provider token usage when available. The request
-audit preserves prompts, raw responses, response IDs, model IDs and usage. Dataset/evaluator
-hashes and settings are recorded for reproducibility. Every response model ID must match;
-the service's hidden backend revisions cannot be independently verified.
+The audit contains 76 unique real responses, with request prompts, response IDs, model IDs,
+usage and raw output. Dataset/evaluator hashes and settings are recorded. A transient HTTP 429
+interrupted the first attempt after 13 responses; the run resumed those audited responses
+without repeating or losing them. Failed-attempt status files are preserved separately.
 
-The regression file preserves original user inputs, expected labels, previous predictions,
-failure categories and severity. The report lists before/after correctness and all improved,
-unchanged and regressed IDs, plus a recommendation.
+The actual response model ID matched on every call. Hidden provider backend revisions cannot
+be independently verified. Latencies reflect this observed service run, including startup and
+any retry delay; they are not a controlled speed comparison.
 
-If there are fewer than eight baseline failures, the runner reports `regression_incomplete`
-and exits with code 2. It does not manufacture failures or substitute the rule-based outputs.
-API errors stop the experiment and mark the run failed. Existing experiment files are never
-silently overwritten; use `--output-root PATH` for a separate run. Offline tests simulate API
-responses only inside temporary test folders and do not prove live model performance.
+### Reproduce
+
+Set the current credential in `llm7_api`, then use a new output folder:
+
+```powershell
+python -m examples.run_llm_variants --base-url https://api.llm7.io/v1 --model mistral-Nemo-Instruct-2407 --api-key-env llm7_api --output-root rerun
+```
+
+Credentials are not saved. The placeholder `FIXED_MODEL_ID` and random routing aliases are
+rejected. HTTP 429 retries are bounded. Use `--resume` only for a failed run with exactly
+matching data, prompts, model settings and evaluator hashes. Existing successful experiments
+are preserved.
+
+A model can produce fewer than eight baseline failures on another run; that is reported as
+`regression_incomplete`, not repaired by inventing cases. The offline tests simulate API
+responses only in temporary folders; the delivered live results above are actual API outputs.
 
 ## Security
 
@@ -374,11 +420,11 @@ Adversarial benchmark cases explicitly declare the attacker's requested output. 
 
 ## Limitations
 
-The checked-in comparison uses simple deterministic keyword rules and does not call an LLM. Results depend on the small 30-case dataset. Regression suites cannot be claimed until at least eight real, verified failures have been collected.
+The local reference comparison remains rule-based. The separate LLM artifacts contain real model outputs on a small, fixed 30-case dataset. The eight regression cases were selected from baseline failures, so their improvement is not an unbiased estimate of general performance. Provider behavior, ambiguous ground truth and limited coverage remain material limitations.
 
 ## Recommendation
 
-Use this implementation to validate evaluator behavior, then run two real model/configuration variants and review their error analysis before making a model-quality recommendation.
+Keep the structured prompt for this benchmark: accuracy improved from 16/30 to 27/30 and the frozen regression improved from 0/8 to 7/8, with no regression. Investigate normal_008 and test a larger held-out dataset before generalizing.
 
 ## 📝 Pre-Commit Checklist
 
@@ -402,3 +448,4 @@ Before committing:
 
 > "Perfect is the enemy of good, but **inconsistency** is the enemy of engineering."
 > — Mingtao's Engineering Law
+> :)
